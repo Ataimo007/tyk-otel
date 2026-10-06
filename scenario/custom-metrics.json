@@ -1,0 +1,270 @@
+[
+  {
+    "name": "http.server.request.duration",
+    "type": "histogram",
+    "description": "End-to-end request latency",
+    "histogram_source": "total",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "method",
+        "label": "http.request.method"
+      },
+      {
+        "source": "metadata",
+        "key": "response_code",
+        "label": "http.response.status_code"
+      },
+      {
+        "source": "metadata",
+        "key": "api_id",
+        "label": "tyk.api.id"
+      },
+      {
+        "source": "metadata",
+        "key": "response_flag",
+        "label": "tyk.response_flag"
+      }
+    ]
+  },
+  {
+    "name": "tyk.gateway.request.duration",
+    "type": "histogram",
+    "description": "Gateway processing time",
+    "histogram_source": "gateway",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "method",
+        "label": "http.request.method"
+      },
+      {
+        "source": "metadata",
+        "key": "api_id",
+        "label": "tyk.api.id"
+      },
+      {
+        "source": "metadata",
+        "key": "response_flag",
+        "label": "tyk.response_flag"
+      }
+    ]
+  },
+  {
+    "name": "tyk.upstream.request.duration",
+    "type": "histogram",
+    "description": "Upstream response time",
+    "histogram_source": "upstream",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "method",
+        "label": "http.request.method"
+      },
+      {
+        "source": "metadata",
+        "key": "api_id",
+        "label": "tyk.api.id"
+      },
+      {
+        "source": "metadata",
+        "key": "response_flag",
+        "label": "tyk.response_flag"
+      }
+    ]
+  },
+  {
+    "name": "tyk.api.requests.total",
+    "type": "counter",
+    "description": "Request count with identity dimensions",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "method",
+        "label": "http.request.method"
+      },
+      {
+        "source": "metadata",
+        "key": "response_code",
+        "label": "http.response.status_code"
+      },
+      {
+        "source": "metadata",
+        "key": "api_id",
+        "label": "tyk.api.id"
+      }
+    ]
+  },
+  {
+    "name": "tyk.consumer.requests",
+    "type": "counter",
+    "description": "Requests per API, endpoint and consumer (API key alias), with status code. Alias, not the key suffix: Dashboard-issued keys all share the same last 6 chars. Key hash comes from the HashAPIKey post_key_auth plugin (context variable hashed_api_key).",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "api_name",
+        "label": "api_name"
+      },
+      {
+        "source": "metadata",
+        "key": "endpoint",
+        "label": "endpoint",
+        "default": "(untracked)"
+      },
+      {
+        "source": "metadata",
+        "key": "method",
+        "label": "method"
+      },
+      {
+        "source": "metadata",
+        "key": "response_code",
+        "label": "response_code"
+      },
+      {
+        "source": "session",
+        "key": "alias",
+        "label": "consumer",
+        "default": "anonymous"
+      },
+      {
+        "source": "context",
+        "key": "hashed_api_key",
+        "label": "key_hash",
+        "default": ""
+      }
+    ],
+    "filters": {
+      "api_ids": [
+        "demo-project-management",
+        "demo-equipment-fleet",
+        "demo-health-safety"
+      ]
+    }
+  },
+  {
+    "name": "tyk.consumer.request.duration",
+    "type": "histogram",
+    "histogram_source": "total",
+    "description": "End-to-end latency per API, endpoint and consumer Key hash comes from the HashAPIKey post_key_auth plugin (context variable hashed_api_key).",
+    "histogram_buckets": [
+      0.005,
+      0.01,
+      0.025,
+      0.05,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      1,
+      1.5,
+      2.5,
+      5
+    ],
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "api_name",
+        "label": "api_name"
+      },
+      {
+        "source": "metadata",
+        "key": "endpoint",
+        "label": "endpoint",
+        "default": "(untracked)"
+      },
+      {
+        "source": "session",
+        "key": "alias",
+        "label": "consumer",
+        "default": "anonymous"
+      },
+      {
+        "source": "context",
+        "key": "hashed_api_key",
+        "label": "key_hash",
+        "default": ""
+      }
+    ],
+    "filters": {
+      "api_ids": [
+        "demo-project-management",
+        "demo-equipment-fleet",
+        "demo-health-safety"
+      ]
+    }
+  },
+  {
+    "name": "tyk.consumer.query_params",
+    "type": "counter",
+    "description": "Query parameter usage per endpoint and consumer (declared, bounded parameters only)",
+    "dimensions": [
+      {
+        "source": "metadata",
+        "key": "api_name",
+        "label": "api_name"
+      },
+      {
+        "source": "metadata",
+        "key": "endpoint",
+        "label": "endpoint",
+        "default": "(untracked)"
+      },
+      {
+        "source": "session",
+        "key": "alias",
+        "label": "consumer",
+        "default": "anonymous"
+      },
+      {
+        "source": "context",
+        "key": "request_data_status",
+        "label": "qp_status",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_region",
+        "label": "qp_region",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_site",
+        "label": "qp_site",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_severity",
+        "label": "qp_severity",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_interval",
+        "label": "qp_interval",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_page",
+        "label": "qp_page",
+        "default": ""
+      },
+      {
+        "source": "context",
+        "key": "request_data_limit",
+        "label": "qp_limit",
+        "default": ""
+      }
+    ],
+    "filters": {
+      "api_ids": [
+        "demo-project-management",
+        "demo-equipment-fleet",
+        "demo-health-safety"
+      ]
+    }
+  }
+]

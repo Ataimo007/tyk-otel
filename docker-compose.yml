@@ -1,0 +1,1062 @@
+---
+# tyk-otel: Tyk Gateway observability demo (metrics, logs, traces)
+#
+# Always run through ./up.sh, ./down.sh or ./dc.sh - they load otel.env (pinned versions and
+# settings), .env (your licences) and .context/secrets.env (secrets generated on first ./up.sh).
+# Running `docker compose` directly will not.
+name: tyk-otel
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# The otel-collector filelog/tyk-gateway receiver only picks up docker logs
+# carrying this tag - keep it on every gateway.
+x-gateway-logging: &gateway-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "tyk-gateway"
+
+x-gateway: &gateway
+  image: tykio/${GATEWAY_IMAGE_REPO}:${GATEWAY_VERSION}
+  networks:
+    - tyk
+  env_file:
+    - otel.env
+    - .env
+  environment:
+    - TYK_GW_OPENTELEMETRY_ENABLED=${OPENTELEMETRY_ENABLED}
+    - TYK_GW_OPENTELEMETRY_ENDPOINT=${OPENTELEMETRY_ENDPOINT}
+    - TYK_GW_HTTPSERVEROPTIONS_ENABLEHTTP2=true
+    - TYK_GW_PROXYENABLEHTTP2=true
+    - TYK_GW_HTTPSERVEROPTIONS_FLUSHINTERVAL=1
+    - TYK_GW_PROXYSSLINSECURESKIPVERIFY=true
+    # secrets generated per install by scripts/init-secrets.sh (tyk.conf only has placeholders)
+    - TYK_GW_SECRET=${TYK_GATEWAY_SECRET:?secrets missing - run ./up.sh}
+    - TYK_GW_NODESECRET=${TYK_NODE_SECRET:?secrets missing - run ./up.sh}
+  volumes:
+    - ./tyk/tyk.conf:/opt/tyk-gateway/tyk.conf
+    # Go plugin that adds the key hash as a context variable (scenario/plugin, built for GATEWAY_VERSION)
+    - ./scenario/plugin:/opt/tyk-gateway/middleware/scenario:ro
+  depends_on:
+    - tyk-redis
+    - tyk-dashboard
+  restart: unless-stopped
+  logging: *gateway-logging
+
+services:
+  # ***************
+  # Tyk Components
+  # ***************
+  tyk-dashboard:
+    image: tykio/tyk-dashboard:${DASHBOARD_VERSION}
+    ports:
+      - 3000:3000
+    networks:
+      - tyk
+    volumes:
+      - ./tyk/tyk_analytics.conf:/opt/tyk-dashboard/tyk_analytics.conf
+    environment:
+      - TYK_DB_LICENSEKEY=${DASHBOARD_LICENCE:?Dashboard licence missing from .env - see README.md}
+      - TYK_LOGLEVEL=info
+      - TYK_DB_ADMINSECRET=${TYK_ADMIN_SECRET:?secrets missing - run ./up.sh}
+      - TYK_DB_NODESECRET=${TYK_NODE_SECRET:?secrets missing - run ./up.sh}
+      - TYK_DB_TYKAPI_SECRET=${TYK_GATEWAY_SECRET:?secrets missing - run ./up.sh}
+    depends_on:
+      - tyk-redis
+      - tyk-mongo
+    restart: unless-stopped
+    logging: *logging
+
+  tyk-gateway:
+    <<: *gateway
+    ports:
+      - 8080:8080
+
+  # Second gateway so the Fleet Health dashboard has a fleet to show.
+  # Needs a licence that allows 2+ gateway nodes; without one it just fails to register.
+  tyk-gateway-2:
+    <<: *gateway
+    ports:
+      - 8081:8080
+    depends_on:
+      - tyk-redis
+      - tyk-dashboard
+      - tyk-gateway
+
+  tyk-pump:
+    image: tykio/tyk-pump-docker-pub:${PUMP_VERSION}
+    networks:
+      - tyk
+    volumes:
+      # Mongo pumps feed Dashboard analytics; the prometheus pump (:8092) feeds
+      # the "SLOs for APIs managed by Tyk" Grafana dashboard.
+      - ./tyk/pump.conf:/opt/tyk-pump/pump.conf
+    depends_on:
+      - tyk-redis
+      - tyk-mongo
+    restart: unless-stopped
+    logging: *logging
+
+  # ****************************************
+  # MDCB - control plane <-> data plane bridge
+  # ****************************************
+  # No native OTel exporter: its logs are shipped by the collector's
+  # filelog/tyk-mdcb receiver (tag below) and /health is probed by httpcheck/tyk-mdcb.
+  tyk-mdcb:
+    image: tykio/tyk-mdcb-docker:${MDCB_VERSION}
+    ports:
+      - 9091:9091 # RPC port data plane gateways connect to
+      - 8181:8181 # /health, /dataplanes (X-Tyk-Authorization: security.secret)
+    networks:
+      - tyk
+    volumes:
+      - ./tyk/mdcb/tyk_sink.conf:/opt/tyk-sink/tyk_sink.conf
+    environment:
+      - TYK_MDCB_LICENSE=${MDCB_LICENCE:?MDCB licence missing from .env - see README.md}
+      - TYK_MDCB_LOGLEVEL=info
+      - TYK_MDCB_SECURITY_SECRET=${TYK_MDCB_SECRET:?secrets missing - run ./up.sh}
+      - TYK_MDCB_SECURITY_PRIVATECERTIFICATEENCODINGSECRET=${TYK_GATEWAY_SECRET:?secrets missing - run ./up.sh}
+    depends_on:
+      - tyk-redis
+      - tyk-mongo
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "tyk-mdcb"
+
+  # Data plane gateway: gets APIs, policies and keys from MDCB (not the Dashboard)
+  # and caches them in its own Redis, so it keeps serving if MDCB goes away.
+  tyk-worker-gateway:
+    <<: *gateway
+    ports:
+      - 8090:8080
+    env_file:
+      - otel.env
+      - .env
+      # Written by bootstrap.sh: TYK_GW_SLAVEOPTIONS_APIKEY (the MDCB Dashboard user's key)
+      - path: .context/mdcb.env
+        required: false
+    volumes:
+      - ./tyk/worker-gateway/tyk.conf:/opt/tyk-gateway/tyk.conf
+      - ./scenario/plugin:/opt/tyk-gateway/middleware/scenario:ro
+    depends_on:
+      - tyk-worker-redis
+      - tyk-mdcb
+
+  tyk-worker-redis:
+    image: redis:7.2.0
+    networks:
+      - tyk
+    volumes:
+      - tyk-worker-redis-data:/data
+    restart: unless-stopped
+    logging: *logging
+
+  tyk-redis:
+    image: redis:7.2.0
+    networks:
+      - tyk
+    volumes:
+      - tyk-redis-data:/data
+    restart: unless-stopped
+    logging: *logging
+
+  tyk-mongo:
+    image: mongo:7.0.9
+    networks:
+      - tyk
+    volumes:
+      - tyk-mongo-data:/data/db
+    restart: unless-stopped
+    logging: *logging
+
+  # Upstream for the APIs created by the traffic scripts in ./scripts
+  httpbin:
+    image: kennethreitz/httpbin:latest
+    networks:
+      - tyk
+    restart: unless-stopped
+    logging: *logging
+
+  # ******************
+  # Core Demo Services
+  # ******************
+  accounting:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-accounting
+    container_name: otel-demo-accounting
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 120M
+    restart: unless-stopped
+    environment:
+      - KAFKA_ADDR
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=accounting
+      - DB_CONNECTION_STRING=Host=${POSTGRES_HOST};Username=otelu;Password=otelp;Database=${POSTGRES_DB}
+      - OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED=false
+    depends_on:
+      otel-collector:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    logging: *logging
+
+  ad:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-ad
+    container_name: otel-demo-ad
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    restart: unless-stopped
+    environment:
+      - AD_PORT
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_SERVICE_NAME=ad
+      # Workaround on OSX for https://bugs.openjdk.org/browse/JDK-8345296
+      - _JAVA_OPTIONS
+    depends_on:
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  cart:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-cart
+    container_name: otel-demo-cart
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    restart: unless-stopped
+    environment:
+      - CART_PORT
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - VALKEY_ADDR
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=cart
+      - ASPNETCORE_URLS=http://*:${CART_PORT}
+    depends_on:
+      valkey-cart:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  checkout:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-checkout
+    container_name: otel-demo-checkout
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 20M
+    restart: unless-stopped
+    environment:
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - CHECKOUT_PORT
+      - CART_ADDR
+      - CURRENCY_ADDR
+      - EMAIL_ADDR
+      - PAYMENT_ADDR
+      - PRODUCT_CATALOG_ADDR
+      - SHIPPING_ADDR
+      - KAFKA_ADDR
+      - GOMEMLIMIT=16MiB
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=checkout
+    depends_on:
+      cart:
+        condition: service_started
+      currency:
+        condition: service_started
+      email:
+        condition: service_started
+      payment:
+        condition: service_started
+      product-catalog:
+        condition: service_started
+      shipping:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  currency:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-currency
+    container_name: otel-demo-currency
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 20M
+    restart: unless-stopped
+    environment:
+      - CURRENCY_PORT
+      - IPV6_ENABLED
+      - VERSION=${IMAGE_VERSION}
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=currency
+    depends_on:
+      otel-collector:
+        condition: service_started
+    logging: *logging
+
+  email:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-email
+    container_name: otel-demo-email
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - EMAIL_PORT
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=email
+    depends_on:
+      otel-collector:
+        condition: service_started
+    logging: *logging
+
+  fraud-detection:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-fraud-detection
+    container_name: otel-demo-fraud-detection
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    restart: unless-stopped
+    environment:
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - KAFKA_ADDR
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_INSTRUMENTATION_KAFKA_EXPERIMENTAL_SPAN_ATTRIBUTES=true
+      - OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED=true
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=fraud-detection
+    depends_on:
+      otel-collector:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    logging: *logging
+
+  frontend:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-frontend
+    container_name: otel-demo-frontend
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    restart: unless-stopped
+    environment:
+      - PORT=${FRONTEND_PORT}
+      - FRONTEND_ADDR
+      - AD_ADDR
+      - CART_ADDR
+      - CHECKOUT_ADDR
+      - CURRENCY_ADDR
+      - PRODUCT_CATALOG_ADDR
+      - RECOMMENDATION_ADDR
+      - SHIPPING_ADDR
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_RESOURCE_ATTRIBUTES
+      - ENV_PLATFORM
+      - OTEL_SERVICE_NAME=frontend
+      - PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - WEB_OTEL_SERVICE_NAME=frontend-web
+      - OTEL_COLLECTOR_HOST
+      - FLAGD_HOST
+      - FLAGD_PORT
+    depends_on:
+      ad:
+        condition: service_started
+      cart:
+        condition: service_started
+      checkout:
+        condition: service_started
+      currency:
+        condition: service_started
+      product-catalog:
+        condition: service_started
+      quote:
+        condition: service_started
+      recommendation:
+        condition: service_started
+      shipping:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+      image-provider:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  # Envoy front door on :8085. Routes /api/* round-robin across all three Tyk
+  # gateways (2 control plane + 1 MDCB data plane), which proxy to the frontend -
+  # that's what puts Tyk in the middle of every shop trace.
+  # The template is mounted so routes can be edited without rebuilding the image.
+  frontend-proxy:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-frontend-proxy
+    container_name: otel-demo-frontend-proxy
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 65M
+    restart: unless-stopped
+    ports:
+      - "${ENVOY_PORT}:${ENVOY_PORT}"
+      - "${ENVOY_ADMIN_PORT}:${ENVOY_ADMIN_PORT}"
+    volumes:
+      - ./otel/frontend-proxy/envoy.tmpl.yaml:/home/envoy/envoy.tmpl.yaml:ro
+    environment:
+      - TYK_GATEWAY_HOST=tyk-gateway
+      - TYK_GATEWAY_2_HOST=tyk-gateway-2
+      - TYK_WORKER_GATEWAY_HOST=tyk-worker-gateway
+      - TYK_GATEWAY_PORT=8080
+      - FRONTEND_PORT
+      - FRONTEND_HOST
+      - LOCUST_WEB_HOST
+      - LOCUST_WEB_PORT
+      - GRAFANA_PORT
+      - GRAFANA_HOST
+      - JAEGER_UI_PORT
+      - JAEGER_HOST
+      - TEMPO_HTTP_PORT
+      - TEMPO_HOST
+      - OTEL_COLLECTOR_HOST
+      - IMAGE_PROVIDER_HOST
+      - IMAGE_PROVIDER_PORT
+      - OTEL_COLLECTOR_PORT_GRPC
+      - OTEL_COLLECTOR_PORT_HTTP
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=frontend-proxy
+      - ENVOY_PORT
+      - ENVOY_ADDR
+      - ENVOY_ADMIN_PORT
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - FLAGD_UI_HOST
+      - FLAGD_UI_PORT
+    depends_on:
+      frontend:
+        condition: service_started
+      load-generator:
+        condition: service_started
+      jaeger:
+        condition: service_started
+      tempo:
+        condition: service_started
+      grafana:
+        condition: service_started
+      flagd-ui:
+        condition: service_started
+      tyk-gateway:
+        condition: service_started
+      tyk-gateway-2:
+        condition: service_started
+      tyk-worker-gateway:
+        condition: service_started
+    dns_search: ""
+
+  image-provider:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-image-provider
+    container_name: otel-demo-image-provider
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 120M
+    restart: unless-stopped
+    environment:
+      - IMAGE_PROVIDER_PORT
+      - OTEL_COLLECTOR_HOST
+      - OTEL_COLLECTOR_PORT_GRPC
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=image-provider
+    depends_on:
+      otel-collector:
+        condition: service_started
+    logging: *logging
+
+  # Locust - drives shop traffic through frontend-proxy -> Tyk continuously
+  load-generator:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-load-generator
+    container_name: otel-demo-load-generator
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+    restart: unless-stopped
+    environment:
+      - LOCUST_WEB_PORT
+      - LOCUST_USERS
+      - LOCUST_HOST
+      - LOCUST_HEADLESS
+      - LOCUST_AUTOSTART
+      - LOCUST_BROWSER_TRAFFIC_ENABLED
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=load-generator
+      - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+      - LOCUST_WEB_HOST=0.0.0.0
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - FLAGD_OFREP_PORT
+    depends_on:
+      frontend:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  payment:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-payment
+    container_name: otel-demo-payment
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 120M
+    restart: unless-stopped
+    environment:
+      - IPV6_ENABLED
+      - PAYMENT_PORT
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=payment
+    depends_on:
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  product-catalog:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-product-catalog
+    container_name: otel-demo-product-catalog
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 20M
+    restart: unless-stopped
+    environment:
+      - PRODUCT_CATALOG_PORT
+      - PRODUCT_CATALOG_RELOAD_INTERVAL
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - GOMEMLIMIT=16MiB
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=product-catalog
+    volumes:
+      - ./otel/product-catalog/products:/usr/src/app/products
+    depends_on:
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  quote:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-quote
+    container_name: otel-demo-quote
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 40M
+    restart: unless-stopped
+    environment:
+      - IPV6_ENABLED
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - QUOTE_PORT
+      - OTEL_PHP_INTERNAL_METRICS_ENABLED=true
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=quote
+    depends_on:
+      otel-collector:
+        condition: service_started
+    logging: *logging
+
+  recommendation:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-recommendation
+    container_name: otel-demo-recommendation
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 500M # high to support the recommendationCache feature flag use case
+    restart: unless-stopped
+    environment:
+      - RECOMMENDATION_PORT
+      - PRODUCT_CATALOG_ADDR
+      - FLAGD_HOST
+      - FLAGD_PORT
+      - OTEL_PYTHON_LOG_CORRELATION=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=recommendation
+      - PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+    depends_on:
+      product-catalog:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    logging: *logging
+
+  shipping:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-shipping
+    container_name: otel-demo-shipping
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 20M
+    restart: unless-stopped
+    environment:
+      - IPV6_ENABLED
+      - SHIPPING_PORT
+      - QUOTE_ADDR
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=shipping
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+    depends_on:
+      otel-collector:
+        condition: service_started
+    logging: *logging
+
+  # ******************
+  # Dependent Services
+  # ******************
+  # Feature flags - toggle failures at http://localhost:8085/feature/
+  flagd:
+    image: ${FLAGD_IMAGE}
+    container_name: otel-demo-flagd
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 75M
+    restart: unless-stopped
+    environment:
+      - FLAGD_OTEL_COLLECTOR_URI=${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_GRPC}
+      - FLAGD_METRICS_EXPORTER=otel
+      - GOMEMLIMIT=60MiB
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=flagd
+    command: ["start", "--uri", "file:./etc/flagd/demo.flagd.json"]
+    volumes:
+      - ./otel/flagd:/etc/flagd
+    logging: *logging
+
+  flagd-ui:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-flagd-ui
+    container_name: otel-demo-flagd-ui
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    restart: always
+    environment:
+      - FLAGD_UI_PORT
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=flagd-ui
+      - SECRET_KEY_BASE=${FLAGD_UI_SECRET_KEY_BASE:?secrets missing - run ./up.sh}
+      - PHX_HOST=localhost
+    depends_on:
+      otel-collector:
+        condition: service_started
+      flagd:
+        condition: service_started
+    volumes:
+      - ./otel/flagd:/app/data
+
+  # Kafka - used by checkout, accounting and fraud-detection
+  kafka:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-kafka
+    container_name: otel-demo-kafka
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 620M
+    restart: unless-stopped
+    environment:
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://${KAFKA_HOST}:9092
+      - KAFKA_LISTENERS=PLAINTEXT://${KAFKA_HOST}:9092,CONTROLLER://${KAFKA_HOST}:9093
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@${KAFKA_HOST}:9093
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://${OTEL_COLLECTOR_HOST}:${OTEL_COLLECTOR_PORT_HTTP}
+      - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=kafka
+      - KAFKA_HEAP_OPTS=-Xmx400m -Xms400m
+      # Workaround on OSX for https://bugs.openjdk.org/browse/JDK-8345296
+      - _JAVA_OPTIONS
+    healthcheck:
+      test: nc -z kafka 9092
+      start_period: 60s
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    logging: *logging
+
+  # PostgreSQL - used by accounting
+  postgresql:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-postgresql
+    container_name: otel-demo-postgresql
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 80M
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    logging: *logging
+
+  # Valkey - used by cart
+  valkey-cart:
+    image: ${VALKEY_IMAGE}
+    container_name: otel-demo-valkey-cart
+    networks:
+      - tyk
+    user: valkey
+    deploy:
+      resources:
+        limits:
+          memory: 20M
+    restart: unless-stopped
+    logging: *logging
+
+  # ********************
+  # Telemetry Components
+  # ********************
+  otel-collector:
+    image: ${COLLECTOR_CONTRIB_IMAGE}
+    container_name: otel-collector
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-config.yml", "--config=/etc/otelcol-config-extras.yml"]
+    user: 0:0
+    volumes:
+      # hostfs gives the filelog receiver access to docker's container log
+      # files - that's how Tyk Gateway logs reach Loki/OpenSearch.
+      - ${HOST_FILESYSTEM:-/}:/hostfs:ro
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - ${OTEL_COLLECTOR_CONFIG}:/etc/otelcol-config.yml
+      - ${OTEL_COLLECTOR_CONFIG_EXTRAS}:/etc/otelcol-config-extras.yml
+    depends_on:
+      jaeger:
+        condition: service_started
+      tempo:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    environment:
+      - FRONTEND_PROXY_ADDR
+      - IMAGE_PROVIDER_HOST
+      - IMAGE_PROVIDER_PORT
+      - HOST_FILESYSTEM=${HOST_FILESYSTEM:-/}
+      - OTEL_COLLECTOR_HOST
+      - OTEL_COLLECTOR_PORT_GRPC
+      - OTEL_COLLECTOR_PORT_HTTP
+      - POSTGRES_HOST
+      - POSTGRES_PORT
+      - POSTGRES_PASSWORD
+      - GOMEMLIMIT=400MiB
+      - GRAFANA_CLOUD_OTLP_ENDPOINT
+      - GRAFANA_CLOUD_INSTANCE_ID
+      - GRAFANA_CLOUD_API_KEY
+    logging: *logging
+
+  # Traces (UI at http://localhost:8085/jaeger/ui)
+  jaeger:
+    image: ${JAEGERTRACING_IMAGE}
+    container_name: otel-demo-jaeger
+    networks:
+      - tyk
+    command:
+      - "--config=file:/etc/jaeger/config.yml"
+    deploy:
+      resources:
+        limits:
+          memory: 1200M
+    restart: unless-stopped
+    environment:
+      - JAEGER_HOST
+      - JAEGER_GRPC_PORT
+      - PROMETHEUS_ADDR
+      - OTEL_COLLECTOR_HOST
+      - OTEL_COLLECTOR_PORT_HTTP
+      - MEMORY_MAX_TRACES=25000
+    volumes:
+      - ./otel/jaeger/config.yml:/etc/jaeger/config.yml
+    logging: *logging
+
+  # Traces (queried from the Grafana dashboards)
+  tempo:
+    image: ${TEMPO_IMAGE}
+    user: "0"
+    container_name: otel-demo-tempo
+    networks:
+      - tyk
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./otel/tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/tmp/tempo
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging: *logging
+
+  # Metrics (exposed on :9090 for ad-hoc PromQL and the report scripts)
+  prometheus:
+    image: ${PROMETHEUS_IMAGE}
+    container_name: otel-demo-prometheus
+    networks:
+      - tyk
+    command:
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --storage.tsdb.retention.time=1h
+      - --config.file=/etc/prometheus/prometheus-config.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.route-prefix=/
+      - --web.enable-otlp-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./otel/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
+      - ./otel/prometheus/slos.rules.yml:/etc/prometheus/slos.rules.yml
+    ports:
+      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    restart: unless-stopped
+    logging: *logging
+
+  # Logs
+  loki:
+    image: ${LOKI_IMAGE}
+    container_name: otel-demo-loki
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./otel/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+    healthcheck:
+      test: wget --quiet --tries=1 --output-document=- http://localhost:3100/ready | grep -q ready
+      start_period: 60s
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  # Logs (second backend, used by the upstream OTel demo dashboards)
+  opensearch:
+    image: ${OTEL_DEMO_IMAGE_NAME}:${OTEL_DEMO_DEMO_VERSION}-opensearch
+    container_name: otel-demo-opensearch
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    restart: unless-stopped
+    environment:
+      - cluster.name=demo-cluster
+      - node.name=demo-node
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+      # Workaround on OSX for https://bugs.openjdk.org/browse/JDK-8345296
+      - _JAVA_OPTIONS
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: curl -s http://localhost:9200/_cluster/health | grep -E '"status":"(green|yellow)"'
+      start_period: 60s
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    logging: *logging
+
+  # Dashboards (UI at http://localhost:8085/grafana/)
+  grafana:
+    image: ${GRAFANA_IMAGE}
+    container_name: otel-demo-grafana
+    networks:
+      - tyk
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+    environment:
+      - "GF_INSTALL_PLUGINS=grafana-opensearch-datasource"
+      - TYK_ALERTING_WEBHOOK_URL
+    volumes:
+      - ./otel/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./otel/grafana/provisioning/:/etc/grafana/provisioning/
+    logging: *logging
+
+  # ********************
+  # Traffic generators (profile "traffic", started by ./up.sh after bootstrap)
+  # ********************
+  # API consumer scenario: six aliased API keys calling the three demo APIs.
+  # Runs in 6h cycles and restarts itself, so traffic never stops while the stack is up.
+  consumer-traffic:
+    image: grafana/k6:${K6_VERSION}
+    profiles: ["traffic"]
+    networks:
+      - tyk
+    working_dir: /work/scenario
+    volumes:
+      - ./:/work:ro
+    command: ["run", "--quiet", "--summary-mode=disabled", "--env", "GATEWAY_URL=http://tyk-gateway:8080", "--env", "DURATION=6h", "traffic.js"]
+    depends_on:
+      - tyk-gateway
+    restart: unless-stopped
+    logging: *logging
+
+  # Generic Tyk scenarios (tenants, OAuth clients, cache, quota, rate limits, backend versions)
+  # for the tyk-demo Grafana dashboards. Creates its own APIs/policies/keys on start.
+  tyk-traffic:
+    image: grafana/k6:${K6_VERSION}
+    profiles: ["traffic"]
+    networks:
+      - tyk
+    volumes:
+      - ./:/work:ro
+    environment:
+      - GATEWAY_URL=http://tyk-gateway:8080
+      - DASHBOARD_URL=http://tyk-dashboard:3000
+      - GATEWAY_SECRET=${TYK_GATEWAY_SECRET:?secrets missing - run ./up.sh}
+    entrypoint: ["sh", "-c"]
+    command: ["k6 run --quiet --summary-mode=disabled --env USER_API_KEY=$$(cat /work/.context/dashboard-api-key) --env DURATION=6h /work/scripts/continuous-traffic-gen.js"]
+    depends_on:
+      - tyk-gateway
+      - tyk-dashboard
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  tyk-redis-data:
+  tyk-worker-redis-data:
+  tyk-mongo-data:
+  tempo-data:
+
+networks:
+  tyk:

@@ -1,0 +1,12 @@
+# Your licences - never commit
+.env
+# Generated per install: secrets, passwords, keys, bootstrap state
+.context/
+# Runtime output
+logs/
+reports/
+# OS / editor noise
+.DS_Store
+*.bak
+*.tmp
+# Keep the committed key-hash plugin build (scenario/plugin/*.so) - it is NOT ignored on purpose

@@ -1,0 +1,3224 @@
+{
+  "uid": "api-consumer-insights",
+  "title": "API Consumer Insights",
+  "description": "API usage, latency and errors per endpoint, API key and query parameter for the demo APIs.",
+  "tags": [
+    "consumers",
+    "tyk",
+    "demo"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "api",
+        "label": "API",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "query": {
+          "query": "label_values(tyk_consumer_requests_total, api_name)",
+          "refId": "v"
+        },
+        "definition": "label_values(tyk_consumer_requests_total, api_name)",
+        "sort": 1
+      },
+      {
+        "name": "consumer",
+        "label": "API key (consumer)",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "query": {
+          "query": "label_values(tyk_consumer_requests_total{api_name=~\"${api:regex}\"}, consumer)",
+          "refId": "v"
+        },
+        "definition": "label_values(tyk_consumer_requests_total{api_name=~\"${api:regex}\"}, consumer)",
+        "sort": 1
+      },
+      {
+        "name": "endpoint",
+        "label": "Endpoint",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "query": {
+          "query": "label_values(tyk_consumer_requests_total{api_name=~\"${api:regex}\"}, endpoint)",
+          "refId": "v"
+        },
+        "definition": "label_values(tyk_consumer_requests_total{api_name=~\"${api:regex}\"}, endpoint)",
+        "sort": 1
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Tyk dashboards",
+      "type": "dashboards",
+      "tags": [
+        "tyk"
+      ],
+      "asDropdown": true,
+      "includeVars": false
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Overview \u2014 calls, errors and latency for the selected APIs, consumers and endpoints",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Total calls",
+      "description": "Number of calls in the selected time range.",
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8438FA",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Throughput",
+      "description": "Current request rate across the selection.",
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8438FA",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error rate (4xx + 5xx)",
+      "description": "Share of calls answered with a 4xx or 5xx, over the time range.",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__range])) / sum(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.02
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Server errors (5xx)",
+      "description": "Share of calls that failed in the gateway or upstream (5xx).",
+      "id": 5,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"5..\"}[$__range])) / sum(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.02
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "P95 latency",
+      "description": "95th percentile end-to-end latency (client \u2192 Tyk \u2192 upstream) over the time range.",
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active API keys",
+      "description": "Consumers (API key aliases) that made at least one call in the time range.",
+      "id": 7,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "count(sum by (consumer) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])) > 0)",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#8438FA",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "type": "row",
+      "title": "Which endpoints are used most \u2014 grouped by API and by API key",
+      "id": 8,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Most-used endpoints",
+      "description": "Top endpoints by number of calls in the time range, across all selected API keys.",
+      "id": 9,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 9,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "topk(12, label_join(label_join(label_replace(sum by (api_name, method, endpoint) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"api_method\", \" \u00b7 \", \"api\", \"method\"), \"route\", \" \", \"api_method\", \"endpoint\"))",
+          "legendFormat": "{{route}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "namePlacement": "top",
+        "showUnfilled": true,
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 26,
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Endpoint usage by API key",
+      "description": "Calls per endpoint (rows) for each API key / consumer (columns). Read across a row to see who uses an endpoint; down a column to see what a consumer calls.",
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(label_join(label_join(label_replace(sum by (api_name, method, endpoint, consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"api_method\", \" \u00b7 \", \"api\", \"method\"), \"route\", \" \", \"api_method\", \"endpoint\"), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Endpoint  \\  API key"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 360
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "key",
+            "rowField": "route",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "route\\key": "Endpoint  \\  API key"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Endpoint traffic over time",
+      "description": "Request rate for the 8 busiest endpoints.",
+      "id": 11,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 15,
+        "x": 9,
+        "y": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "topk(8, label_join(label_join(label_replace(sum by (api_name, method, endpoint) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"api_method\", \" \u00b7 \", \"api\", \"method\"), \"route\", \" \", \"api_method\", \"endpoint\"))",
+          "legendFormat": "{{route}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Calls by API grouped by API key \u2014 compare consumers side by side",
+      "id": 12,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Calls per API by API key",
+      "description": "Number of calls for each API key (rows) on each API (columns). This is the view that is hard to get from per-key dashboards today (Q5).",
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(label_replace(sum by (api_name, consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "API key  \\  API"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 290
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "api",
+            "rowField": "key",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "key\\api": "API key  \\  API"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Share of calls by API key",
+      "description": "Each consumer's share of all calls in the time range.",
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "{{key}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent"
+          ],
+          "showLegend": true
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Calls by API key",
+      "description": "Total calls per API key in the time range.",
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 28
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sort_desc(label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\"))",
+          "legendFormat": "{{key}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "namePlacement": "top",
+        "showUnfilled": true,
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 26,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "API key comparison scorecard",
+      "description": "One row per API key: volume, error rate, rate-limit and access denials, and latency \u2014 so keys can be compared directly instead of dashboard by dashboard.",
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "B",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__range])) / sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "C",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"5..\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "D",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=\"429\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "E",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=\"403\"}[$__range])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "F",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(histogram_quantile(0.50, sum by (le, consumer, key_hash) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "G",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(histogram_quantile(0.95, sum by (le, consumer, key_hash) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "H",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(count by (consumer, key_hash) (sum by (consumer, key_hash, api_name) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range])) > 0), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "I",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "API key \u00b7 alias (hash)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Calls"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg req/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.02
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.05
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "429 rate-limited"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "403 forbidden"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P50 latency"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "P95 latency"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.8
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "APIs used"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Calls",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "consumer": true,
+              "key_hash": true
+            },
+            "renameByName": {
+              "key": "API key \u00b7 alias (hash)",
+              "Value #A": "Calls",
+              "Value #B": "Avg req/s",
+              "Value #C": "Error rate",
+              "Value #D": "5xx",
+              "Value #E": "429 rate-limited",
+              "Value #F": "403 forbidden",
+              "Value #G": "P50 latency",
+              "Value #H": "P95 latency",
+              "Value #I": "APIs used"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls per second by API key",
+      "description": "Request rate per API key over time.",
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "{{key}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "sum"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Which query parameters are used across the endpoints",
+      "id": 18,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Query parameters in use",
+      "description": "Number of calls that carried each query parameter. Parameters are declared per instrument (context variables request_data_<name>) so cardinality stays bounded.",
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 0,
+        "y": 53
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_status!=\"\"}[$__range]))",
+          "legendFormat": "status",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_region!=\"\"}[$__range]))",
+          "legendFormat": "region",
+          "refId": "B",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_site!=\"\"}[$__range]))",
+          "legendFormat": "site",
+          "refId": "C",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_severity!=\"\"}[$__range]))",
+          "legendFormat": "severity",
+          "refId": "D",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_interval!=\"\"}[$__range]))",
+          "legendFormat": "interval",
+          "refId": "E",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_page!=\"\"}[$__range]))",
+          "legendFormat": "page",
+          "refId": "F",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum(increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_limit!=\"\"}[$__range]))",
+          "legendFormat": "limit",
+          "refId": "G",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "namePlacement": "top",
+        "showUnfilled": true,
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 26,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Query parameters by endpoint",
+      "description": "Calls using each query parameter (columns), per endpoint (rows). Empty = parameter never sent to that endpoint.",
+      "id": 20,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 18,
+        "x": 6,
+        "y": 53
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_status!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_region!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "B",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_site!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "C",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_severity!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "D",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_interval!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "E",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_page!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "F",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(sum by (api_name, endpoint) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_limit!=\"\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "G",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0,
+          "noValue": ""
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Endpoint"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 360
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "api": true,
+              "api_name": true,
+              "api_method": true,
+              "endpoint": true
+            },
+            "renameByName": {
+              "route": "Endpoint",
+              "Value #A": "status",
+              "Value #B": "region",
+              "Value #C": "site",
+              "Value #D": "severity",
+              "Value #E": "interval",
+              "Value #F": "page",
+              "Value #G": "limit"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Region filter values",
+      "description": "Distribution of values sent in the 'region' query parameter.",
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (qp_region) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_region!=\"\"}[$__range]))",
+          "legendFormat": "{{qp_region}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent"
+          ],
+          "showLegend": true
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Project status filter values",
+      "description": "Distribution of values sent in the 'status' query parameter.",
+      "id": 22,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (qp_status) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_status!=\"\"}[$__range]))",
+          "legendFormat": "{{qp_status}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent"
+          ],
+          "showLegend": true
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Incident severity filter values",
+      "description": "Distribution of values sent in the 'severity' query parameter.",
+      "id": 23,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (qp_severity) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_severity!=\"\"}[$__range]))",
+          "legendFormat": "{{qp_severity}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent"
+          ],
+          "showLegend": true
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Telemetry interval values",
+      "description": "Distribution of values sent in the 'interval' query parameter.",
+      "id": 24,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 63
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (qp_interval) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_interval!=\"\"}[$__range]))",
+          "legendFormat": "{{qp_interval}}",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent"
+          ],
+          "showLegend": true
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "table",
+      "title": "Page size requested (limit) by API key",
+      "description": "Which API keys request large pages \u2014 a common source of slow calls and upstream load.",
+      "id": 25,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 71
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (consumer, qp_limit) (increase(tyk_consumer_query_params_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", qp_limit!=\"\"}[$__range]))",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "API key  \\  limit="
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "qp_limit",
+            "rowField": "consumer",
+            "valueField": "Value",
+            "emptyValue": "zero"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "consumer\\qp_limit": "API key  \\  limit="
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Latency",
+      "id": 26,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 77
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 latency by API",
+      "description": "95th percentile end-to-end latency per API.",
+      "id": 27,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 78
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(histogram_quantile(0.95, sum by (le, api_name) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval]))), \"api\", \"$1\", \"api_name\", \"(.*)\")",
+          "legendFormat": "{{api}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 latency by API key",
+      "description": "95th percentile latency per API key \u2014 shows which consumer experiences (or causes) slow calls.",
+      "id": 28,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 78
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(histogram_quantile(0.95, sum by (le, consumer, key_hash) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval]))), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "{{key}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Slowest endpoints",
+      "description": "P50 / P95 / P99 latency per endpoint over the time range, slowest first.",
+      "id": 29,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 86
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(histogram_quantile(0.5, sum by (le, api_name, endpoint) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(histogram_quantile(0.95, sum by (le, api_name, endpoint) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "B",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_join(label_replace(histogram_quantile(0.99, sum by (le, api_name, endpoint) (rate(tyk_consumer_request_duration_seconds_bucket{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__range]))), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"route\", \" \u00b7 \", \"api\", \"endpoint\")",
+          "legendFormat": "",
+          "refId": "C",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.3
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Endpoint"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 330
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "P95",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "api": true,
+              "api_name": true,
+              "api_method": true,
+              "endpoint": true
+            },
+            "renameByName": {
+              "route": "Endpoint",
+              "Value #A": "P50",
+              "Value #B": "P95",
+              "Value #C": "P99"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Where the time goes: gateway vs upstream (P95)",
+      "description": "Tyk's own processing time vs the backend's response time for the demo APIs (default Tyk instruments). A flat gateway line during a latency spike means the backend is the bottleneck.",
+      "id": 30,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 86
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(tyk_upstream_request_duration_seconds_bucket{tyk_api_id=~\"demo-.*\"}[$__rate_interval])))",
+          "legendFormat": "Upstream (backend)",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(tyk_gateway_request_duration_seconds_bucket{tyk_api_id=~\"demo-.*\"}[$__rate_interval])))",
+          "legendFormat": "Tyk Gateway",
+          "refId": "B",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tyk Gateway"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#39F1C4"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Upstream (backend)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8438FA"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Error rates",
+      "id": 31,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 95
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate by API",
+      "description": "Share of calls answered 4xx/5xx, per API.",
+      "id": 32,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 96
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(sum by (api_name) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__rate_interval])) / sum by (api_name) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval])), \"api\", \"$1\", \"api_name\", \"(.*)\")",
+          "legendFormat": "{{api}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate by API key",
+      "description": "Share of calls answered 4xx/5xx, per API key.",
+      "id": 33,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 96
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(sum by (consumer, key_hash) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__rate_interval])) / sum by (consumer, key_hash) (rate(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__rate_interval])), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "{{key}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors by status code",
+      "description": "4xx/5xx responses per status code: 403 = key not allowed on that API, 404 = unknown path, 429 = rate limit, 5xx = gateway/upstream failure.",
+      "id": 34,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 96
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (response_code) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__interval]))",
+          "legendFormat": "{{response_code}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "type": "table",
+      "title": "Top failing calls",
+      "description": "Endpoint \u00d7 API key \u00d7 status code combinations with the most errors in the time range.",
+      "id": 35,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 104
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(label_replace(label_join(topk(10, label_join(label_join(label_replace(sum by (api_name, method, endpoint, consumer, key_hash, response_code) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\", response_code=~\"[45]..\"}[$__range])), \"api\", \"$1\", \"api_name\", \"(.*)\"), \"api_method\", \" \u00b7 \", \"api\", \"method\"), \"route\", \" \", \"api_method\", \"endpoint\")), \"key\", \" (\", \"consumer\", \"key_hash\"), \"key\", \"$1)\", \"key\", \"(.+ \\\\(.+)\"), \"key\", \"$1\", \"key\", \"(.+) \\\\(\")",
+          "legendFormat": "",
+          "refId": "A",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "API key \u00b7 alias (hash)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Errors",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "api": true,
+              "api_name": true,
+              "api_method": true,
+              "method": true,
+              "endpoint": true,
+              "consumer": true,
+              "key_hash": true
+            },
+            "renameByName": {
+              "route": "Endpoint",
+              "key": "API key \u00b7 alias (hash)",
+              "response_code": "Status",
+              "Value": "Errors"
+            },
+            "indexByName": {
+              "route": 0,
+              "key": 1,
+              "response_code": 2,
+              "Value": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Number of calls",
+      "id": 36,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 111
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls per API",
+      "description": "Calls per minute for each API.",
+      "id": 37,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 112
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "label_replace(sum by (api_name) (increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__interval])), \"api\", \"$1\", \"api_name\", \"(.*)\")",
+          "legendFormat": "{{api}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls by status class",
+      "description": "Calls per minute by response class (2xx, 4xx, 5xx).",
+      "id": 38,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 112
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "expr": "sum by (class) (label_replace(increase(tyk_consumer_requests_total{api_name=~\"${api:regex}\", consumer=~\"${consumer:regex}\", endpoint=~\"${endpoint:regex}\"}[$__interval]), \"class\", \"${1}xx\", \"response_code\", \"(.)..\"))",
+          "legendFormat": "{{class}}",
+          "refId": "A",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 70,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#39F1C4"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB020"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF4444"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "type": "row",
+      "title": "Logs (Loki) \u2014 access logs for the demo APIs",
+      "id": 39,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 120
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Access-log volume by status",
+      "description": "Log lines per status code \u2014 the same signal from logs, no metrics needed.",
+      "id": 40,
+      "datasource": {
+        "type": "loki",
+        "uid": "webstore-logs"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 121
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "webstore-logs"
+          },
+          "expr": "sum by (tyk_status) (count_over_time({service_name=\"tyk-gateway\"} | tyk_prefix=`access-log` | tyk_api_id=~`demo-.*` [$__auto]))",
+          "legendFormat": "{{tyk_status}}",
+          "refId": "A",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Failed calls (4xx / 5xx) \u2014 access logs",
+      "description": "Every failed call with its path, status, latency and hashed API key. Query strings are not logged by design (they can carry sensitive data).",
+      "id": 41,
+      "datasource": {
+        "type": "loki",
+        "uid": "webstore-logs"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 8,
+        "y": 121
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "webstore-logs"
+          },
+          "expr": "{service_name=\"tyk-gateway\"} | tyk_prefix=`access-log` | tyk_api_id=~`demo-.*` | tyk_status >= 400",
+          "refId": "A",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": false,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "api_definition": {
+    "name": "Health & Safety API",
+    "slug": "demo-health-safety",
+    "api_id": "demo-health-safety",
+    "org_id": "1",
+    "use_keyless": false,
+    "auth": {
+      "auth_header_name": "Authorization"
+    },
+    "enable_context_vars": true,
+    "proxy": {
+      "listen_path": "/hse/",
+      "target_url": "http://httpbin/anything/",
+      "strip_listen_path": true
+    },
+    "active": true,
+    "config_data": {
+      "business_unit": "demo",
+      "owner": "platform-team"
+    },
+    "version_data": {
+      "not_versioned": true,
+      "default_version": "Default",
+      "versions": {
+        "Default": {
+          "name": "Default",
+          "use_extended_paths": true,
+          "extended_paths": {
+            "track_endpoints": [
+              {
+                "path": "/incidents",
+                "method": "GET",
+                "disabled": false
+              },
+              {
+                "path": "/incidents",
+                "method": "POST",
+                "disabled": false
+              },
+              {
+                "path": "/inspections/{id}",
+                "method": "GET",
+                "disabled": false
+              },
+              {
+                "path": "/sites/{id}/permits",
+                "method": "GET",
+                "disabled": false
+              }
+            ],
+            "url_rewrites": []
+          }
+        }
+      }
+    },
+    "use_standard_auth": true,
+    "base_identity_provided_by": "auth_token",
+    "custom_middleware": {
+      "driver": "goplugin",
+      "pre": [],
+      "post": [],
+      "response": [],
+      "auth_check": {
+        "name": "",
+        "path": ""
+      },
+      "post_key_auth": [
+        {
+          "name": "HashAPIKey",
+          "path": "/opt/tyk-gateway/middleware/scenario/otel_custom_hash_metrics.so"
+        }
+      ]
+    }
+  }
+}
