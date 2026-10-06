@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Brings the tyk-otel stack up, fully automated. The only prerequisite is a .env with your
-# DASHBOARD_LICENCE and MDCB_LICENCE.
+# DASHBOARD_LICENCE. Add an MDCB_LICENCE as well to include MDCB and a data plane gateway.
 #   1. generates per-install secrets (first run only)
 #   2. builds the key-hash Go plugin for the pinned gateway version (only if missing)
 #   3. starts the containers
-#   4. bootstraps Tyk, MDCB and the API consumer scenario (each stage runs once)
+#   4. bootstraps Tyk, MDCB (if licensed) and the API consumer scenario (each stage runs once)
 #   5. starts the k6 traffic generators
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -15,15 +15,18 @@ command -v openssl >/dev/null || { echo "ERROR: openssl is required"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "ERROR: Docker is not running - start Docker Desktop (or the Docker daemon) first"; exit 1; }
 
 if [[ ! -f .env ]]; then
-  echo "ERROR: .env missing. Run: cp .env.example .env  and add DASHBOARD_LICENCE and MDCB_LICENCE"
+  echo "ERROR: .env missing. Run: cp .env.example .env  and add your DASHBOARD_LICENCE"
   exit 1
 fi
-for licence in DASHBOARD_LICENCE MDCB_LICENCE; do
-  if ! grep -qE "^${licence}=[^<[:space:]]+" .env; then
-    echo "ERROR: $licence is not set in .env"
-    exit 1
-  fi
-done
+if ! grep -qE '^DASHBOARD_LICENCE=[^<[:space:]]+' .env; then
+  echo "ERROR: DASHBOARD_LICENCE is not set in .env"
+  exit 1
+fi
+if grep -qE '^MDCB_LICENCE=[^<[:space:]]+' .env; then
+  echo "Mode: Tyk Self-Managed + MDCB (MDCB_LICENCE found in .env)"
+else
+  echo "Mode: Tyk Self-Managed (no MDCB_LICENCE in .env - MDCB and the data plane gateway are skipped)"
+fi
 
 mkdir -p logs .context
 scripts/init-secrets.sh

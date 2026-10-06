@@ -80,8 +80,8 @@ If time is short, skip **d** and **g**; never skip **c** or **f**.
 
 | Question | Show |
 | -------- | ---- |
-| Gateway health across nodes or regions | *tyk-demo → Tyk Gateway – Fleet Health*, and the MDCB data-plane gateway |
-| A data plane losing its control plane | `./dc.sh stop tyk-mdcb`: the worker gateway keeps serving, and the MDCB health metric drops to 0. `./dc.sh start tyk-mdcb` restores it |
+| Gateway health across nodes or regions | *tyk-demo → Tyk Gateway – Fleet Health*, and the MDCB data-plane gateway (MDCB mode) |
+| A data plane losing its control plane (MDCB mode) | `./dc.sh stop tyk-mdcb`: the worker gateway keeps serving, and the MDCB health metric drops to 0. `./dc.sh start tyk-mdcb` restores it |
 | SLOs | *SLOs for APIs managed by Tyk* |
 | Long-term per-request records | Tyk Pump with a SQL sink, separate from the OTel metrics path |
 

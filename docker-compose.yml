@@ -105,10 +105,13 @@ services:
   # ****************************************
   # MDCB - control plane <-> data plane bridge
   # ****************************************
+  # Optional: tyk-mdcb, tyk-worker-gateway and tyk-worker-redis are in the "mdcb" profile,
+  # which ./dc.sh enables automatically when .env contains an MDCB_LICENCE.
   # No native OTel exporter: its logs are shipped by the collector's
   # filelog/tyk-mdcb receiver (tag below) and /health is probed by httpcheck/tyk-mdcb.
   tyk-mdcb:
     image: tykio/tyk-mdcb-docker:${MDCB_VERSION}
+    profiles: ["mdcb"]
     ports:
       - 9091:9091 # RPC port data plane gateways connect to
       - 8181:8181 # /health, /dataplanes (X-Tyk-Authorization: security.secret)
@@ -117,7 +120,7 @@ services:
     volumes:
       - ./tyk/mdcb/tyk_sink.conf:/opt/tyk-sink/tyk_sink.conf
     environment:
-      - TYK_MDCB_LICENSE=${MDCB_LICENCE:?MDCB licence missing from .env - see README.md}
+      - TYK_MDCB_LICENSE=${MDCB_LICENCE:-}
       - TYK_MDCB_LOGLEVEL=info
       - TYK_MDCB_SECURITY_SECRET=${TYK_MDCB_SECRET:?secrets missing - run ./up.sh}
       - TYK_MDCB_SECURITY_PRIVATECERTIFICATEENCODINGSECRET=${TYK_GATEWAY_SECRET:?secrets missing - run ./up.sh}
@@ -136,6 +139,7 @@ services:
   # and caches them in its own Redis, so it keeps serving if MDCB goes away.
   tyk-worker-gateway:
     <<: *gateway
+    profiles: ["mdcb"]
     ports:
       - 8090:8080
     env_file:
@@ -153,6 +157,7 @@ services:
 
   tyk-worker-redis:
     image: redis:7.2.0
+    profiles: ["mdcb"]
     networks:
       - tyk
     volumes:
@@ -449,6 +454,7 @@ services:
 
   # Envoy front door on :8085. Routes /api/* round-robin across all three Tyk
   # gateways (2 control plane + 1 MDCB data plane), which proxy to the frontend -
+  # without MDCB, ./dc.sh points the third route at tyk-gateway instead -
   # that's what puts Tyk in the middle of every shop trace.
   # The template is mounted so routes can be edited without rebuilding the image.
   frontend-proxy:
@@ -469,7 +475,7 @@ services:
     environment:
       - TYK_GATEWAY_HOST=tyk-gateway
       - TYK_GATEWAY_2_HOST=tyk-gateway-2
-      - TYK_WORKER_GATEWAY_HOST=tyk-worker-gateway
+      - TYK_WORKER_GATEWAY_HOST=${TYK_WORKER_GATEWAY_HOST:-tyk-worker-gateway}
       - TYK_GATEWAY_PORT=8080
       - FRONTEND_PORT
       - FRONTEND_HOST
@@ -514,6 +520,7 @@ services:
         condition: service_started
       tyk-worker-gateway:
         condition: service_started
+        required: false   # only present with MDCB
     dns_search: ""
 
   image-provider:

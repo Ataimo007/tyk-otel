@@ -4,30 +4,39 @@ A self-contained demo environment for **Tyk 5.13 native OpenTelemetry observabil
 
 It includes a complete **API consumer scenario**: three APIs, six consumer applications with aliased API keys, custom gateway metrics, a key-hash Go plugin, a dedicated Grafana dashboard, a presentation deck and a demo runbook.
 
-**All you provide is your licences.** Versions are pinned, templates and dashboards are predefined, secrets are generated per install, and the setup, plugin build and traffic generation are automated.
+**All you provide is your licence.** Versions are pinned, templates and dashboards are predefined, secrets are generated per install, and the setup, plugin build and traffic generation are automated.
 
 ## Quick start
 
 **Prerequisites**
 - Docker with **at least 8 GB RAM** allocated (Docker Desktop on macOS or Windows, or Docker Engine on Linux)
 - `jq` and `openssl` on the host
-- A **Tyk Dashboard licence** and a **Tyk MDCB licence**
-- Pull access to `tykio/tyk-mdcb-docker`. It's a private image; run `docker login` with an account that has access, or ask your Tyk account manager.
+- A **Tyk Dashboard licence** (Tyk Self-Managed / Tyk Pro)
+- *Optional:* a **Tyk MDCB licence**, plus pull access to the private `tykio/tyk-mdcb-docker` image (`docker login` with an account that has access)
 
 ```bash
-cp .env.example .env     # then paste your DASHBOARD_LICENCE and MDCB_LICENCE
+cp .env.example .env     # then paste your DASHBOARD_LICENCE (and MDCB_LICENCE, if you have one)
 ./up.sh
 ```
+
+**Two modes, chosen automatically from `.env`:**
+
+| `.env` has | You get |
+| ---------- | ------- |
+| `DASHBOARD_LICENCE` only | **Tyk Self-Managed (Tyk Pro):** Dashboard, two gateways, Pump. MDCB and the data-plane gateway are skipped. |
+| `DASHBOARD_LICENCE` + `MDCB_LICENCE` | Everything above, plus **MDCB** and a **data-plane gateway** (group `data-plane-1`). |
+
+The whole observability demo (dashboards, custom metrics, plugin, traffic) works the same in both modes. To add MDCB later, put `MDCB_LICENCE` in `.env` and run `./up.sh` again; only the MDCB stage runs. To drop it, remove the licence and run `./down.sh && ./up.sh`.
 
 That's it. `./up.sh`:
 1. generates per-install secrets and passwords into `.context/secrets.env` (first run only)
 2. builds the key-hash Go plugin for the pinned gateway version, if no build exists for your CPU architecture
 3. pulls and starts about 40 containers
-4. bootstraps Tyk (organisation, admin user, APIs), MDCB (data-plane connection) and the API consumer scenario (APIs, policies, keys)
+4. bootstraps Tyk (organisation, admin user, APIs), MDCB if licensed (data-plane connection), and the API consumer scenario (APIs, policies, keys)
 5. starts the traffic generators
 6. prints the URLs and credentials
 
-The first run takes about 5–10 minutes. The plugin is committed prebuilt for linux/arm64 and linux/amd64, so nothing is compiled unless you change `GATEWAY_VERSION` (then allow 10–20 minutes for the one-off build). Let traffic run for **about 15 minutes** before demoing, so every panel has a full time range.
+The first run takes about 5–10 minutes, and `up.sh` prints which mode it's using. The plugin is committed prebuilt for linux/arm64 and linux/amd64, so nothing is compiled unless you change `GATEWAY_VERSION` (then allow 10–20 minutes for the one-off build). Let traffic run for **about 15 minutes** before demoing, so every panel has a full time range.
 
 `./bootstrap.sh --summary` prints the URLs and credentials again at any time.
 
@@ -36,8 +45,8 @@ The first run takes about 5–10 minutes. The plugin is committed prebuilt for l
 | Grafana (no login) | http://localhost:8085/grafana/ → *API Consumer Insights* and *tyk-demo* folders |
 | Tyk Dashboard | http://localhost:3000 (`admin-user@example.org`, password from `./bootstrap.sh --summary`) |
 | Gateway 1 / 2 (control plane) | http://localhost:8080 / http://localhost:8081 |
-| Worker gateway (MDCB data plane) | http://localhost:8090 |
-| MDCB health | http://localhost:8181/health |
+| Worker gateway (MDCB data plane, MDCB mode only) | http://localhost:8090 |
+| MDCB health (MDCB mode only) | http://localhost:8181/health |
 | Shop UI (Envoy → Tyk → frontend) | http://localhost:8085 |
 | Jaeger / Prometheus | http://localhost:8085/jaeger/ui / http://localhost:9090 |
 | Locust / feature flags | http://localhost:8085/loadgen/ / http://localhost:8085/feature/ |
@@ -63,7 +72,7 @@ Set in [otel.env](otel.env). Don't override them in `.env`: the plugin and dashb
 | --------- | ------- |
 | Tyk Gateway | v5.13.3 |
 | Tyk Dashboard | v5.13.3 |
-| Tyk MDCB | v2.13.0 |
+| Tyk MDCB (optional) | v2.13.0 |
 | Tyk Pump | v1.15.0 |
 | Key-hash plugin | built with `tykio/tyk-plugin-compiler:v5.13.3` |
 | OpenTelemetry Demo | 2.1.3 (prebuilt images) |
@@ -78,7 +87,7 @@ Set in [otel.env](otel.env). Don't override them in `.env`: the plugin and dashb
 Browser / Locust ─► Envoy :8085 ─┬─┼─► Gateway 1 :8080                            │
 k6 (consumer + Tyk scenarios) ───┼─┼─► Gateway 2 :8081                            │
                   (round robin)  │ └──────────────────────────────────────────────┘
-                                 │ ┌─ Data plane ─────────────────────────────────┐
+                                 │ ┌─ Data plane (MDCB mode only) ────────────────┐
                                  └─┼─► Worker Gateway :8090 (via MDCB, own Redis)  │
                                    └──────────────────────────────────────────────┘
                                              │  gateways proxy to the shop and the demo APIs
@@ -91,8 +100,8 @@ k6 (consumer + Tyk scenarios) ───┼─┼─► Gateway 2 :8081          
 
 | Layer | Services |
 | ----- | -------- |
-| Tyk control plane | Dashboard, Gateway, Gateway 2, Pump (Mongo + Prometheus `:8092`), MDCB, Redis, Mongo, httpbin |
-| Tyk data plane | Worker gateway (group `data-plane-1`), Worker Redis |
+| Tyk control plane | Dashboard, Gateway, Gateway 2, Pump (Mongo + Prometheus `:8092`), Redis, Mongo, httpbin; plus MDCB in MDCB mode |
+| Tyk data plane (MDCB mode only) | Worker gateway (group `data-plane-1`), Worker Redis |
 | OTel Demo app | 15 microservices, Envoy front door, Locust, flagd, Kafka, Postgres, Valkey |
 | Telemetry | OTel Collector, Prometheus, Loki, OpenSearch, Jaeger, Tempo, Grafana |
 | Traffic | `consumer-traffic` and `tyk-traffic` (k6 containers, run continuously in 6-hour cycles) |
@@ -101,7 +110,7 @@ k6 (consumer + Tyk scenarios) ───┼─┼─► Gateway 2 :8081          
 - **Metrics:** gateways push OTLP using the instruments in `TYK_GW_OPENTELEMETRY_METRICS_APIMETRICS` ([otel.env](otel.env)). The Pump also exposes classic analytics for the SLO dashboard.
 - **Traces:** OTLP spans, 10% sampled.
 - **Logs:** JSON gateway and access logs. The collector reads them from Docker's log files (containers tagged `tyk-gateway`) and ships them to Loki and OpenSearch.
-- **MDCB:** logs to Loki as `service_name="tyk-mdcb"`, plus a `/health` probe as a Prometheus metric.
+- **MDCB (MDCB mode only):** logs to Loki as `service_name="tyk-mdcb"`, plus a `/health` probe as a Prometheus metric. Without MDCB the probe reports it as down; ignore the MDCB panels in *Fleet Health*.
 
 ## Grafana dashboards
 
@@ -141,7 +150,7 @@ The consumer dashboard is also exported for import into another Grafana (it prom
 ## Secrets and credentials
 
 Nothing secret is committed:
-- **Your licences** live in `.env`, which is git-ignored.
+- **Your licence(s)** live in `.env`, which is git-ignored.
 - **Generated secrets and passwords** (gateway, node, Dashboard admin, MDCB, user passwords) are created on first `./up.sh` in `.context/secrets.env`, which is git-ignored. The configs in [tyk/](tyk/) only contain `SET_VIA_ENV_*` placeholders; the real values are injected as environment variables.
 - **Runtime state** (Dashboard API key, MDCB user key, consumer keys) is also kept in `.context/`.
 - **Reset:** `./down.sh` deletes `.context/`, and the next install gets fresh secrets.
@@ -180,7 +189,7 @@ The two k6 containers cover all dashboards. These one-shot scripts are optional;
 ├── up.sh · down.sh · dc.sh · bootstrap.sh    lifecycle (only up.sh is needed)
 ├── docker-compose.yml                        the whole stack
 ├── otel.env                                  pinned versions and settings (committed)
-├── .env.example                              licence template; copy to .env
+├── .env.example                              licence template (MDCB optional); copy to .env
 ├── tyk/                                      Tyk configs (secrets are placeholders), org, users, OTel Demo APIs
 ├── otel/                                     collector, Prometheus, Grafana (dashboards, alerting), Loki, Tempo, Jaeger, Envoy, flagd
 ├── scenario/                                 demo APIs, setup.sh, traffic.js, plugin/, custom-metrics.json, portable dashboard
@@ -194,7 +203,7 @@ The two k6 containers cover all dashboards. These one-shot scripts are optional;
 | ------- | ----- |
 | `up.sh`: "Docker is not running" | Start Docker Desktop or the Docker daemon |
 | Stuck at "Waiting for Gateway, Dashboard and Redis" | `./dc.sh logs tyk-dashboard`. Usually an invalid or expired Dashboard licence |
-| Stuck at "Waiting for MDCB to be healthy" | `./dc.sh logs tyk-mdcb`. Usually the MDCB licence |
+| Stuck at "Waiting for MDCB to be healthy" | `./dc.sh logs tyk-mdcb`. Usually the MDCB licence. To run without MDCB, remove `MDCB_LICENCE` from `.env` and run `./down.sh && ./up.sh` |
 | MDCB image fails to pull | `tykio/tyk-mdcb-docker` is private: `docker login` with an account that has access |
 | Plugin build fails | `logs/plugin-build.log`. Retry with `scripts/build-plugin.sh --force`; network errors during the dependency download are usually transient |
 | Gateway 2 missing from Fleet Health | Your licence allows only one gateway node; everything else still works |

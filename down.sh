@@ -13,6 +13,7 @@ for v in TYK_GATEWAY_SECRET TYK_NODE_SECRET TYK_ADMIN_SECRET TYK_MDCB_SECRET FLA
   export "$v=unused"
 done
 [[ -f .env ]] || touch .env
-COMPOSE_PROFILES=traffic ./dc.sh down -v --remove-orphans
+# Include every profile so MDCB containers go too, even if the licence was removed since
+COMPOSE_PROFILES=traffic,mdcb ./dc.sh down -v --remove-orphans
 rm -rf .context logs/bootstrap.log
 echo "tyk-otel removed."

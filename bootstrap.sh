@@ -3,7 +3,7 @@
 #   1. the "Tyk Demo" organisation and an admin Dashboard user
 #   2. the OpenTelemetry Demo APIs (tyk/apis/*.json), which put Tyk Gateway
 #      between the Envoy front door and the shop frontend
-#   3. an MDCB Dashboard user, whose key connects the data plane gateway to MDCB
+#   3. with an MDCB_LICENCE: an MDCB Dashboard user, whose key connects the data plane gateway to MDCB
 #   4. the API consumer scenario (scenario/setup.sh: APIs, policies, aliased keys)
 #
 # Secrets and passwords come from .context/secrets.env (scripts/init-secrets.sh).
@@ -29,6 +29,8 @@ MDCB_SECRET=$TYK_MDCB_SECRET
 ADMIN_SECRET=$TYK_ADMIN_SECRET
 GATEWAY_SECRET=$TYK_GATEWAY_SECRET
 LOG=logs/bootstrap.log
+MDCB_ENABLED=false
+grep -qE '^MDCB_LICENCE=[^<[:space:]]+' .env 2>/dev/null && MDCB_ENABLED=true
 
 mkdir -p logs .context
 
@@ -51,11 +53,15 @@ print_summary() {
             Gateway 1 : $GATEWAY_URL
             Gateway 2 : http://localhost:8081
    Gateway API Secret : $GATEWAY_SECRET
+$(if $MDCB_ENABLED; then cat <<MDCB
 
 ▼ MDCB (data plane group: data-plane-1)
           MDCB health : $MDCB_URL/health
       MDCB dataplanes : curl -H "X-Tyk-Authorization: $MDCB_SECRET" $MDCB_URL/dataplanes
    Data plane gateway : $WORKER_GATEWAY_URL
+MDCB
+else echo "
+▼ MDCB : not enabled (add MDCB_LICENCE to .env and run ./up.sh)"; fi)
 
 ▼ OpenTelemetry Demo (via Envoy :8085 -> Tyk -> frontend)
               Shop UI : http://localhost:8085
@@ -225,6 +231,6 @@ bootstrap_scenario() {
 }
 
 [[ -f .context/bootstrapped ]] || bootstrap_core
-[[ -f .context/mdcb-bootstrapped ]] || bootstrap_mdcb
+if $MDCB_ENABLED; then [[ -f .context/mdcb-bootstrapped ]] || bootstrap_mdcb; fi
 [[ -f .context/scenario-bootstrapped ]] || bootstrap_scenario
 echo "Bootstrap complete."
